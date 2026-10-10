@@ -1,0 +1,118 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class PlayerController : MonoBehaviour
+{
+    [SerializeField] float torqueAmount = 1f;
+    [SerializeField] float baseSpeed = 15f;
+    [SerializeField] float boostSpeed = 20f;
+    [SerializeField] ParticleSystem powerupParticles;
+
+    InputAction moveAction;
+    Rigidbody2D myRigidbody2D;
+    SurfaceEffector2D surfaceEffector2D;
+    ScoreManager scoreManager;
+
+    Vector2 moveVector;
+    bool canControlPlayer = true;
+    float previousRotation;
+    float totalRotation;
+    int activatePowerupCount;
+
+    void Start()
+    {
+        moveAction = InputSystem.actions.FindAction("Move");
+        myRigidbody2D = GetComponent<Rigidbody2D>();
+        surfaceEffector2D = FindAnyObjectByType<SurfaceEffector2D>();
+        scoreManager = FindAnyObjectByType<ScoreManager>();
+
+        previousRotation = myRigidbody2D.rotation;
+    }
+
+    void Update()
+    {
+        if (canControlPlayer)
+        {
+            RotatePlayer();
+            BoostPlayer();
+            CalculateFlips();
+        }
+    }
+
+    void RotatePlayer()
+    {
+        moveVector = moveAction.ReadValue<Vector2>();
+        if (moveVector.x < 0)
+        {
+            myRigidbody2D.AddTorque(torqueAmount);
+        }
+        else if (moveVector.x > 0)
+        {
+            myRigidbody2D.AddTorque(-torqueAmount);
+        }
+    }
+
+    void BoostPlayer()
+    {
+        if (moveVector.y > 0)
+        {
+            surfaceEffector2D.speed = boostSpeed;
+        }
+        else
+        {
+            surfaceEffector2D.speed = baseSpeed;
+        }
+    }
+
+    void CalculateFlips()
+    {
+        float currentRotation = myRigidbody2D.rotation;
+
+        totalRotation += Mathf.DeltaAngle(previousRotation, currentRotation);
+
+        if (Mathf.Abs(totalRotation) >= 340f)
+        {
+            totalRotation = 0;
+            scoreManager.AddScore(100);
+        }
+
+        previousRotation = currentRotation;
+    }
+
+    public void DisableControls()
+    {
+        canControlPlayer = false;
+    }
+
+    public void ActivatePowerup(PoweupSO powerup)
+    {
+        powerupParticles.Play();
+        activatePowerupCount += 1;
+        if (powerup.GetPowerupType() == "speed")
+        {
+            baseSpeed += powerup.GetValueChange();
+            boostSpeed += powerup.GetValueChange();
+        }
+        else if (powerup.GetPowerupType() == "torque")
+        {
+            torqueAmount += powerup.GetValueChange();
+        }
+    }
+    public void DeactivatePowerup(PoweupSO powerup)
+    {
+        activatePowerupCount -= 1;
+        if (activatePowerupCount == 0)
+        {
+            powerupParticles.Stop();
+        }
+        if (powerup.GetPowerupType() == "speed")
+            {
+                baseSpeed -= powerup.GetValueChange();
+                boostSpeed -= powerup.GetValueChange();
+            }
+            else if (powerup.GetPowerupType() == "torque")
+            {
+                torqueAmount -= powerup.GetValueChange();
+            }
+    }
+}
